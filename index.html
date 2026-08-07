@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ON Coquetelaria</title>
+
+  <!-- Importação das fontes: Inter (texto/UI) + Fraunces (títulos, toque editorial de cardápio) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+
+  <!-- Importação do jsPDF para geração do PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Importação do Chart.js para os gráficos da tela Financeiro -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+  <!-- Plugin oficial para exibir os valores numéricos em cima das barras/fatias -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+
+  <!-- LIGAÇÃO COM O SEU ARQUIVO CSS EXTERNO -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ========================================== -->
+  <!-- TELA DE LOGIN — visível até o usuário autenticar; some quando -->
+  <!-- <body> ganha a classe "autenticado" (ver js/app.js) -->
+  <!-- ========================================== -->
+  <div id="screen-login" class="login-screen">
+    <form id="login-form" class="login-card">
+      <img src="assets/logo.png" alt="ON Coquetelaria" class="login-logo">
+      <h1 class="login-titulo">ON Coquetelaria</h1>
+      <p class="login-subtitulo">Entre com seu usuário para continuar.</p>
+
+      <label class="login-label" for="login-usuario">Usuário</label>
+      <input type="text" id="login-usuario" class="form-input" placeholder="" autocomplete="username" required>
+
+      <label class="login-label" for="login-senha">Senha</label>
+      <input type="password" id="login-senha" class="form-input" placeholder="Sua senha" autocomplete="current-password" required>
+
+      <p id="login-erro" class="login-erro"></p>
+
+      <button type="submit" id="login-botao" class="btn-primary login-botao">Entrar</button>
+    </form>
+  </div>
+
+  <!-- Barra Superior (Header) -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo.png" alt="ON Coquetelaria" class="brand-logo">
+      <div>
+        <div class="mark">ON</div>
+        <div class="tag">Coquetelaria</div>
+      </div>
+    </div>
+    <div class="topbar-usuario">
+      <span id="usuario-logado-nome" class="usuario-logado-nome"></span>
+      <button type="button" id="btn-logout" class="icon-btn" title="Sair" aria-label="Sair">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Área Principal de Conteúdo -->
+  <main>
+
+    <!-- ========================================== -->
+    <!-- TELA 1: HOME (Início - Ativa por padrão) -->
+    <!-- ========================================== -->
+    <div id="screen-home" class="screen active">
+      <div class="section-label"><span class="section-label-icon">✦</span> Menu Rápido</div>
+      <p class="subtitle">Selecione uma opção abaixo</p>
+
+      <div class="menu-grid">
+        <div class="menu-card" data-target="screen-drinks">
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 22h8"></path><path d="M12 11v11"></path><path d="m19 3-7 8-7-8Z"></path></svg>
+          </div>
+          <div>
+            <div class="label">Drinks &amp; Insumos</div>
+            <div class="desc">Catálogo de coquetéis e controle de estoque.</div>
+          </div>
+        </div>
+
+        <div class="menu-card" data-target="screen-eventos">
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </div>
+          <div>
+            <div class="label">Eventos</div>
+            <div class="desc">Agenda e checklists.</div>
+          </div>
+        </div>
+
+        <div class="menu-card" data-action="novo-pedido" data-target="screen-criar-pedido">
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </div>
+          <div>
+            <div class="label">Criar Pedido</div>
+            <div class="desc">Monte um novo pedido para o evento.</div>
+          </div>
+        </div>
+
+        <div class="menu-card" data-action="nova-proposta" data-target="screen-criar-proposta">
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <div>
+            <div class="label">Fazer Proposta</div>
+            <div class="desc">Monte uma proposta para enviar ao cliente.</div>
+          </div>
+        </div>
+
+        <div class="menu-card" data-action="ver-propostas" data-target="screen-propostas-lista">
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          </div>
+          <div>
+            <div class="label">Ver Propostas</div>
+            <div class="desc">Consulte as propostas já criadas.</div>
+          </div>
+        </div>
+
+        <div class="menu-card" data-target="screen-financeiro">
+          <div class="card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <div>
+            <div class="label">Financeiro</div>
+            <div class="desc">Faturamento e gastos por evento.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 2: DRINKS (Lista + Busca + Adicionar) -->
+    <!-- ========================================== -->
+    <div id="screen-drinks" class="screen">
+      <div class="home-hero">
+        <span class="eyebrow">Cardápio &amp; Estoque</span>
+        <h1>Drinks &amp; Insumos</h1>
+        <p>Acesse as fichas técnicas dos coquetéis e controle o estoque.</p>
+      </div>
+
+      <div class="search-bar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="drink-search" class="search-input" placeholder="Pesquisar drink...">
+      </div>
+
+      <div id="drink-list" class="drink-list"></div>
+
+      <button type="button" id="btn-add-drink" class="btn-block btn-primary btn-fab-bottom">
+        + Adicionar Drink
+      </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 3: ADICIONAR DRINK                    -->
+    <!-- ========================================== -->
+    <div id="screen-add-drink" class="screen">
+      <div class="form-header">
+        <span class="eyebrow">— Novo Drink</span>
+        <h1>Adicionar Drink</h1>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Foto do Drink</label>
+        <div id="drink-photo-preview" class="photo-upload">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          <span>Toque para adicionar uma foto</span>
+        </div>
+        <input type="file" id="drink-photo-input" accept="image/*" hidden>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="drink-name-input">Nome do Drink</label>
+        <input type="text" id="drink-name-input" class="form-input" placeholder="Ex: Caipirinha de limão">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="drink-desc-input">Descrição / Receita</label>
+        <textarea id="drink-desc-input" class="form-textarea" placeholder="Modo de preparo, observações..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Insumos (quantidade a cada 50 convidados)</label>
+        <div id="insumos-container" class="insumos-container"></div>
+        <button type="button" id="btn-add-insumo" class="btn-block btn-secondary">
+          + Adicionar insumo
+        </button>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="btn-cancel-drink" class="btn-secondary" data-target="screen-drinks">Cancelar</button>
+        <button type="button" id="btn-save-drink" class="btn-primary">Salvar drink</button>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 5: EVENTOS (Oculta por padrão)        -->
+    <!-- ========================================== -->
+    <div id="screen-eventos" class="screen">
+      <div class="home-hero">
+        <span class="eyebrow">Agenda</span>
+        <h1>Seus Eventos</h1>
+        <p>Próximas festas, locais e checklists.</p>
+      </div>
+
+      <div class="search-bar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="evento-search" class="search-input" placeholder="Pesquisar evento pelo cliente...">
+      </div>
+
+      <div id="eventos-list"></div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA: LISTA DE COMPRAS DO PEDIDO            -->
+    <!-- ========================================== -->
+    <div id="screen-lista-compras" class="screen">
+      <div class="form-header">
+        <span class="eyebrow">Insumos do evento</span>
+        <h1>Lista de Compras</h1>
+        <p class="form-header-desc" id="lista-compras-subtitulo"></p>
+      </div>
+
+      <div id="lista-compras-itens"></div>
+
+      <div class="form-actions">
+        <button type="button" data-target="screen-eventos" class="btn-secondary">Voltar</button>
+        <button type="button" id="btn-copiar-lista-compras" class="btn-primary">Copiar Texto</button>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 6: CRIAR PEDIDO                        -->
+    <!-- ========================================== -->
+    <div id="screen-criar-pedido" class="screen">
+      <div class="form-header">
+        <h1 id="pedido-form-titulo">Criar Pedido</h1>
+        <p class="form-header-desc" id="pedido-form-subtitulo">Informe o número de convidados e marque os drinks do evento.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pedido-cliente-input">Nome do Cliente</label>
+        <input type="text" id="pedido-cliente-input" class="form-input" placeholder="Ex: Maria Silva">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pedido-data-input">Data do Evento</label>
+        <input type="date" id="pedido-data-input" class="form-input">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="pedido-hora-inicio-input">Horário de Início</label>
+          <input type="time" id="pedido-hora-inicio-input" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pedido-hora-fim-input">Horário de Término</label>
+          <input type="time" id="pedido-hora-fim-input" class="form-input">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pedido-convidados-input">Quantidade de Convidados</label>
+        <input type="number" id="pedido-convidados-input" class="form-input" placeholder="Ex: 120" min="0">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pedido-endereco-input">Endereço do Evento</label>
+        <input type="text" id="pedido-endereco-input" class="form-input" placeholder="Ex: Rua 10, nº 200, Setor Bueno, Goiânia - GO">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="pedido-valor-contrato-input">Valor do Contrato (opcional)</label>
+          <input type="number" id="pedido-valor-contrato-input" class="form-input" placeholder="Ex: 3500" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pedido-valor-entrada-input">Valor de Entrada (opcional)</label>
+          <input type="number" id="pedido-valor-entrada-input" class="form-input" placeholder="Ex: 500" min="0" step="0.01">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="pedido-bartenders-input">Quantidade de Bartenders</label>
+          <input type="number" id="pedido-bartenders-input" class="form-input" placeholder="Ex: 2" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pedido-backbar-input">Quantidade de Backbar (opcional)</label>
+          <input type="number" id="pedido-backbar-input" class="form-input" placeholder="Ex: 1" min="0">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Drinks no Evento</label>
+        <div class="search-bar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="pedido-drink-search" class="search-input" placeholder="Buscar drink pelo nome">
+        </div>
+        <div id="pedido-drinks-list" class="pedido-drinks-list"></div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-target="screen-home">Cancelar</button>
+        <button type="button" id="btn-save-pedido" class="btn-primary">Criar Pedido</button>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA: FAZER / EDITAR PROPOSTA               -->
+    <!-- ========================================== -->
+    <div id="screen-criar-proposta" class="screen">
+      <div class="form-header">
+        <h1 id="proposta-form-titulo">Fazer Proposta</h1>
+        <p class="form-header-desc" id="proposta-form-subtitulo">Preencha os dados do evento para gerar o texto da proposta.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-tipo-evento">Tipo de Evento</label>
+        <select id="pr-tipo-evento" class="form-input"></select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-endereco">Endereço do Cliente</label>
+        <input type="text" id="pr-endereco" class="form-input" placeholder="Ex: Rua 10, nº 200, Setor Bueno, Goiânia - GO">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-data">Data do Evento</label>
+        <input type="date" id="pr-data" class="form-input">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-convidados">Quantidade de Convidados</label>
+        <input type="number" id="pr-convidados" class="form-input" placeholder="Ex: 120" min="0">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-bartenders">Quantidade de Bartenders</label>
+        <input type="number" id="pr-bartenders" class="form-input" placeholder="Ex: 2" min="0">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-backbar">Quantidade de Backbar (opcional)</label>
+        <input type="number" id="pr-backbar" class="form-input" placeholder="Ex: 1" min="0">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-horas">Horas de Serviço de Bar Aberto</label>
+        <input type="number" id="pr-horas" class="form-input" placeholder="Ex: 6" min="0">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-valor">Valor Total do Orçamento (R$)</label>
+        <input type="number" id="pr-valor" class="form-input" placeholder="Ex: 8500" min="0" step="0.01">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pr-observacoes">Observações (opcional)</label>
+        <textarea id="pr-observacoes" class="form-textarea" placeholder="Alguma observação extra sobre essa proposta? Ela será incluída no PDF."></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-target="screen-home">Cancelar</button>
+        <button type="button" id="proposta-form-btn-salvar" class="btn-primary">Gerar proposta</button>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA: VER PROPOSTAS (Lista das já criadas)  -->
+    <!-- ========================================== -->
+    <div id="screen-propostas-lista" class="screen">
+      <div class="home-hero">
+        <span class="eyebrow">Orçamentos</span>
+        <h1>Propostas</h1>
+        <p>Consulte as propostas já criadas para seus clientes.</p>
+      </div>
+
+      <div id="propostas-list"></div>
+
+      <button type="button" data-action="nova-proposta" data-target="screen-criar-proposta" class="btn-block btn-primary btn-fab-bottom">
+        + Nova Proposta
+      </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA: DETALHE DA PROPOSTA GERADA            -->
+    <!-- ========================================== -->
+    <div id="screen-proposta-detalhe" class="screen">
+      <div class="form-header">
+        <span class="eyebrow" id="proposta-detalhe-tipo">Proposta</span>
+        <h1 id="proposta-detalhe-titulo">Proposta gerada</h1>
+        <p class="form-header-desc" id="proposta-detalhe-resumo"></p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Texto da Proposta</label>
+        <textarea id="proposta-detalhe-texto" class="form-textarea" style="min-height: 320px;" readonly></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" data-target="screen-home" class="btn-secondary">Voltar ao Início</button>
+        <button type="button" id="btn-editar-proposta" class="btn-secondary">Editar</button>
+        <button type="button" id="btn-copiar-proposta" class="btn-secondary">Copiar Texto</button>
+        <button type="button" id="btn-compartilhar-proposta" class="btn-secondary">Compartilhar</button>
+        <button type="button" id="btn-baixar-pdf" class="btn-primary">Baixar PDF</button>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 7: FINANCEIRO                          -->
+    <!-- ========================================== -->
+    <div id="screen-financeiro" class="screen">
+      <div class="home-hero">
+        <span class="eyebrow">Resultados</span>
+        <h1>Financeiro</h1>
+        <p>Acompanhe faturamento e gastos.</p>
+      </div>
+
+      <div class="finance-summary-grid">
+        <div class="finance-summary">
+          <div class="finance-summary-label">Faturado</div>
+          <div id="finance-summary-total" class="finance-summary-value">R$ 0,00</div>
+        </div>
+        <div class="finance-summary">
+          <div class="finance-summary-label">Gastos</div>
+          <div id="finance-summary-gastos" class="finance-summary-value">R$ 0,00</div>
+        </div>
+        <div class="finance-summary">
+          <div class="finance-summary-label">A receber</div>
+          <div id="finance-summary-a-receber" class="finance-summary-value">R$ 0,00</div>
+        </div>
+        <div class="finance-summary">
+          <div class="finance-summary-label">Lucro líquido</div>
+          <div id="finance-summary-lucro" class="finance-summary-value">R$ 0,00</div>
+        </div>
+      </div>
+
+      <div class="finance-graficos">
+        <div class="finance-graficos-header">
+          <span class="form-label">Período</span>
+          <select id="finance-periodo-select" class="finance-periodo-select">
+            <option value="dia">Hoje</option>
+            <option value="semana">Esta semana</option>
+            <option value="mes">Este mês</option>
+            <option value="ano">Este ano</option>
+            <option value="tudo">Todo o período</option>
+          </select>
+        </div>
+
+        <div class="finance-chart-card">
+          <div class="finance-chart-titulo">Faturamento x Lucro líquido</div>
+          <div class="finance-chart-canvas-wrap">
+            <canvas id="finance-chart-ganhos"></canvas>
+          </div>
+        </div>
+
+        <div class="finance-chart-card">
+          <div class="finance-chart-titulo" id="finance-periodo-atual-label">Gastos por categoria</div>
+          <div class="finance-chart-canvas-wrap">
+            <canvas id="finance-chart-gastos"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="finance-search" class="search-input" placeholder="Pesquisar pedido pelo cliente...">
+      </div>
+
+      <div id="finance-list" class="finance-list"></div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 8: ADICIONAR GASTO/NOTA                -->
+    <!-- ========================================== -->
+    <div id="screen-financeiro-gasto" class="screen">
+      <div class="form-header">
+        <span class="eyebrow">— Lançamento</span>
+        <h1>Adicionar gasto/nota</h1>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="gasto-descricao-input">Descrição</label>
+        <input type="text" id="gasto-descricao-input" class="form-input" placeholder="Ex: Compra de gelo, transporte, insumos extras...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="gasto-tipo-select">Tipo de gasto</label>
+        <select id="gasto-tipo-select" class="form-input"></select>
+        <input type="date" id="gasto-data-input" hidden>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="gasto-valor-input">Valor (R$)</label>
+        <input type="number" id="gasto-valor-input" class="form-input" placeholder="Ex: 150" min="0" step="0.01">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Comprovante (opcional)</label>
+        <div id="gasto-comprovante-preview" class="photo-upload">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          <span>Toque para adicionar uma foto do comprovante</span>
+        </div>
+        <input type="file" id="gasto-comprovante-input" accept="image/*" hidden>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="btn-cancel-gasto" class="btn-secondary" data-target="screen-financeiro">Cancelar</button>
+        <button type="button" id="btn-save-gasto" class="btn-primary">Salvar</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Barra de Navegação Inferior (Tabbar) -->
+  <nav class="tabbar">
+    <div class="tab active" data-target="screen-home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+      Início
+    </div>
+
+    <div class="tab" data-action="nova-proposta" data-target="screen-criar-proposta">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+      Propostas
+    </div>
+
+    <div class="tab" data-target="screen-criar-pedido">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"></rect><rect x="14" y="3" width="7" height="18" rx="1"></rect></svg>
+      Comandas
+    </div>
+
+    <div class="tab" data-target="screen-drinks">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 22h8"></path><path d="M12 11v11"></path><path d="m19 3-7 8-7-8Z"></path></svg>
+      Drinks
+    </div>
+  </nav>
+
+  <!-- Modal de confirmação genérico (usado por qualquer módulo via components/confirmacao.js) -->
+  <div id="modal-confirmacao" class="modal-overlay" hidden>
+    <div class="modal-caixa">
+      <p id="modal-confirmacao-mensagem" class="modal-mensagem"></p>
+      <div class="modal-acoes">
+        <button type="button" id="modal-confirmacao-cancelar" class="btn-secondary">Cancelar</button>
+        <button type="button" id="modal-confirmacao-ok" class="btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ponto de entrada da aplicação modularizada -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
