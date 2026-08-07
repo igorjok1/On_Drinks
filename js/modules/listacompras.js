@@ -417,4 +417,4 @@ function init() {
   });
 }
 
-export const ListaCompras = { init, abrir };
+export const Listacompras = { init, abrir };
