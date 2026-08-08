@@ -3,8 +3,6 @@ import { formatarMoeda, formatarDataExtenso, diaDaSemanaExtenso, parseDataLocal,
 import { criarRepositorioSupabase } from '../utils/repository.js';
 import { confirmarEExcluir } from '../utils/exclusao.js';
 import { $ } from '../utils/dom.js';
-// Ajuste este import para o caminho real do seu cliente Supabase (ex: o mesmo usado em repository.js)
-import { supabase } from '../utils/supabaseClient.js';
 
 // ---------- Repositório ----------
 const PropostasRepository = criarRepositorioSupabase('propostas');
@@ -246,41 +244,168 @@ export const Propostas = (() => {
     if (proposta) abrirDetalheSalva(proposta);
   }
 
-  const nomeArquivoPDF = (p) => `proposta-${p.tipo}-${p.id}.pdf`;
+  const CORES_PDF = { fundo: [12,10,8], cardFundo: [24,20,13], borda: [90,72,36], texto: [245,239,226], muted: [156,145,132], ouro: [217,164,65] };
 
-  // Chama a Edge Function "gerar-proposta-pdf", que monta o PDF no servidor
-  // (mesmo layout de antes), salva no bucket "propostas-pdfs" do Storage
-  // e devolve os bytes do PDF já prontos para baixar/compartilhar.
-  async function gerarPDFViaFuncao(p) {
-    const { data, error } = await supabase.functions.invoke('gerar-proposta-pdf', {
-      body: { proposta: p },
-    });
-
-    if (error) {
-      alert('Não foi possível gerar o PDF. Tente novamente.');
-      return null;
+  const LOGO_PATH = 'assets/logo.png';
+  let logoImagemPromise = null;
+  function carregarLogo() {
+    if (!logoImagemPromise) {
+      logoImagemPromise = new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = LOGO_PATH;
+      });
     }
-
-    // supabase-js devolve Blob quando a resposta não é JSON.
-    return data instanceof Blob ? data : new Blob([data], { type: 'application/pdf' });
+    return logoImagemPromise;
   }
 
-  const baixarBlobPDF = (blob, nomeArquivo) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = nomeArquivo;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const nomeArquivoPDF = (p) => `proposta-${p.tipo}-${p.id}.pdf`;
+
+  // Monta o PDF da proposta e devolve o documento pronto (sem salvar/baixar),
+  // para que baixarPDF() e compartilharPDF() decidam o que fazer com ele.
+  async function montarDocumentoPDF(p) {
+    if (!window.jspdf) { alert('Biblioteca PDF carregando...'); return null; }
+
+    const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' });
+    const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight();
+    const mx = 50, maxW = width - mx * 2;
+    let y = 56;
+
+    const bg = () => { doc.setFillColor(...CORES_PDF.fundo); doc.rect(0, 0, width, height, 'F'); };
+    const footer = () => {
+      doc.setDrawColor(60,52,34).setLineWidth(0.6).line(mx, height - 40, width - mx, height - 40);
+      doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...CORES_PDF.muted);
+      doc.text(`ON Coquetelaria · Proposta de ${TIPOS_EVENTO[p.tipo] || 'Orçamento'}`, mx, height - 26);
+      doc.text(`Página ${doc.internal.getNumberOfPages()}`, width - mx, height - 26, { align: 'right' });
+    };
+    const checkPage = (add) => { if (y + add > height - 56) { footer(); doc.addPage(); bg(); y = 56; } };
+
+    const textoEspacado = (txt, x, yy, { alg = 'left', sp = 1.2, fs = 10, st = 'normal', c = CORES_PDF.texto } = {}) => {
+      doc.setFontSize(fs).setFont('helvetica', st).setTextColor(...c);
+      const chars = txt.split(''), largs = chars.map(ch => doc.getTextWidth(ch));
+      let cx = alg === 'center' ? x - (largs.reduce((a,b) => a+b,0) + sp * (chars.length-1))/2 : x;
+      chars.forEach((ch, i) => { doc.text(ch, cx, yy); cx += largs[i] + sp; });
+    };
+
+    const paragrafoMisto = (segments, x, yStart, w, lh = 14, fs = 10, { medir = false, cor = CORES_PDF.texto, alg = 'left' } = {}) => {
+      doc.setFontSize(fs);
+      const esp = doc.getTextWidth(' '), palavras = [];
+      segments.forEach(s => String(s.text).split(' ').filter(Boolean).forEach(wd => {
+        doc.setFont('helvetica', s.bold ? 'bold' : s.italic ? 'italic' : 'normal');
+        palavras.push({ txt: wd, b: s.bold, i: s.italic, w: doc.getTextWidth(wd) });
+      }));
+
+      let currY = yStart, line = [], currW = 0;
+      const flush = () => {
+        if (!line.length) return;
+        let cx = alg === 'center' ? x - line.reduce((a, v, i) => a + v.w + (i ? esp : 0), 0)/2 : x;
+        if (!medir) {
+          doc.setTextColor(...cor);
+          line.forEach(v => {
+            doc.setFont('helvetica', v.b ? 'bold' : v.i ? 'italic' : 'normal');
+            doc.text(v.txt, cx, currY); cx += v.w + esp;
+          });
+        }
+        currY += lh; line = []; currW = 0;
+      };
+
+      palavras.forEach(v => {
+        const pW = currW + (line.length ? esp : 0) + v.w;
+        if (pW > w && line.length) { flush(); line.push(v); currW = v.w; } else { line.push(v); currW = pW; }
+      });
+      flush(); return currY;
+    };
+
+    const desenharCard = (titulo, itens, x, yTopo, larg) => {
+      const pX = 22, pT = 24, wTxt = larg - pX * 2;
+      const linhas = itens.map(i => ({ t: i.texto, l: i.lead, semBullet: i.semBullet }));
+
+      const process = (medir, ySt) => {
+        let cy = ySt;
+        linhas.forEach((lin, i) => {
+          const hasB = !lin.semBullet, xTxt = hasB ? x + pX + 14 : x + pX;
+          if (hasB && !medir) doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(...CORES_PDF.ouro).text('•', x + pX, cy);
+          const segs = lin.l ? [{ text: lin.l + ' ', bold: true }, { text: lin.t }] : [{ text: lin.t }];
+          cy = paragrafoMisto(segs, xTxt, cy, hasB ? wTxt - 14 : wTxt, 14, 10, { medir });
+          if (i < linhas.length - 1) cy += 8;
+        });
+        return cy;
+      };
+
+      const altura = pT + process(true, 36) + 24;
+      checkPage(altura); yTopo = y;
+
+      doc.setFillColor(...CORES_PDF.cardFundo).setDrawColor(...CORES_PDF.borda).setLineWidth(0.8)
+         .roundedRect(x, yTopo, larg, altura, 8, 8, 'FD').setLineWidth(0.5);
+
+      textoEspacado(titulo.toUpperCase(), x + pX, yTopo + pT, { sp: 1.1, fs: 11.5, st: 'bold', c: CORES_PDF.ouro });
+      doc.setDrawColor(...CORES_PDF.borda).line(x + pX, yTopo + pT + 8, x + larg - pX, yTopo + pT + 8);
+
+      process(false, yTopo + pT + 28);
+      return yTopo + altura;
+    };
+
+    const desenharCardInvestimento = (x, yTopo, larg) => {
+      const pX = 22, pT = 26, cE = larg * 0.34, cD = larg - cE - pX * 2;
+      let yyD = 32;
+      p.formasPagamento.forEach((i, idx) => {
+        yyD = paragrafoMisto([{ text: i.lead + ' ', bold: true }, { text: i.texto }], 0, yyD, cD, 13, 9.5, { medir: true });
+        if (idx < p.formasPagamento.length - 1) yyD += 8;
+      });
+
+      const alt = pT + Math.max(90, yyD) + 26;
+      checkPage(alt); yTopo = y;
+
+      doc.setFillColor(...CORES_PDF.cardFundo).setDrawColor(...CORES_PDF.ouro).setLineWidth(1)
+         .roundedRect(x, yTopo, larg, alt, 8, 8, 'FD').setDrawColor(...CORES_PDF.borda).setLineWidth(0.5)
+         .line(x + cE, yTopo + 16, x + cE, yTopo + alt - 16);
+
+      const cX = x + cE / 2;
+      textoEspacado('INVESTIMENTO TOTAL', cX, yTopo + pT + 4, { alg: 'center', sp: 1.4, fs: 8.5, c: CORES_PDF.muted });
+      doc.setFont('helvetica', 'bold').setFontSize(19).setTextColor(...CORES_PDF.texto).text('R$ ' + formatarMoeda(p.total), cX, yTopo + pT + 30, { align: 'center' });
+      textoEspacado('PIX • CARTÃO • TED', cX, yTopo + pT + 50, { alg: 'center', sp: 1.2, fs: 8, st: 'bold', c: CORES_PDF.ouro });
+
+      doc.setFontSize(11).setTextColor(...CORES_PDF.ouro).text('FORMAS DE PAGAMENTO', x + cE + pX, yTopo + pT);
+      let cyD = yTopo + pT + 18;
+      p.formasPagamento.forEach((i, idx) => {
+        cyD = paragrafoMisto([{ text: i.lead + ' ', bold: true }, { text: i.texto }], x + cE + pX, cyD, cD, 13, 9.5);
+        if (idx < p.formasPagamento.length - 1) cyD += 8;
+      });
+      return yTopo + alt;
+    };
+
+    bg();
+    const logo = await carregarLogo();
+    const logoSize = 70;
+    if (logo) doc.addImage(logo, 'PNG', width / 2 - logoSize / 2, 24, logoSize, logoSize);
+    y = 24 + logoSize + 18;
+
+    if (p.endereco) y = paragrafoMisto([{ text: p.endereco }], mx, y, maxW, 13, 9.5, { cor: CORES_PDF.muted }) + 14;
+    y = paragrafoMisto(p.template.introSegmentos, mx, y, maxW, 15, 10.5) + 22;
+
+    checkPage(60);
+    textoEspacado(p.template.tituloSecao.toUpperCase(), width / 2, y, { alg: 'center', sp: 2, fs: 13.5, st: 'bold', c: CORES_PDF.ouro });
+    y += 34;
+
+    p.template.cards.forEach(c => y = desenharCard(c.titulo, c.itens, mx, y, maxW) + 18);
+    if (p.observacoes) y = desenharCard('Observações', p.observacoes.split('\n').map(t => ({ texto: t, semBullet: true })), mx, y, maxW) + 18;
+
+    y = desenharCardInvestimento(mx, y, maxW) + 30;
+    checkPage(40);
+    y = paragrafoMisto([{ text: p.fechamentoReal, italic: true }], width / 2, y, maxW * 0.86, 14, 9.5, { cor: CORES_PDF.muted, alg: 'center' });
+
+    footer();
+    return doc;
+  }
 
   async function baixarPDF() {
     const p = PropostasRepository.getAll().find(x => x.id === state.detalheId);
     if (!p) return;
 
-    const blob = await gerarPDFViaFuncao(p);
-    if (!blob) return;
-    baixarBlobPDF(blob, nomeArquivoPDF(p));
+    const doc = await montarDocumentoPDF(p);
+    if (!doc) return;
+    doc.save(nomeArquivoPDF(p));
   }
 
   // Compartilha o PDF da proposta pelo menu nativo do dispositivo (Web Share API).
@@ -289,10 +414,10 @@ export const Propostas = (() => {
     const p = PropostasRepository.getAll().find(x => x.id === state.detalheId);
     if (!p) return;
 
-    const blob = await gerarPDFViaFuncao(p);
-    if (!blob) return;
+    const doc = await montarDocumentoPDF(p);
+    if (!doc) return;
 
-    const arquivo = new File([blob], nomeArquivoPDF(p), { type: 'application/pdf' });
+    const arquivo = new File([doc.output('blob')], nomeArquivoPDF(p), { type: 'application/pdf' });
 
     if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
       try {
@@ -304,7 +429,7 @@ export const Propostas = (() => {
     }
 
     alert('Compartilhamento direto não é suportado neste navegador. Baixando o PDF para você compartilhar manualmente.');
-    baixarBlobPDF(blob, nomeArquivoPDF(p));
+    doc.save(nomeArquivoPDF(p));
   }
 
   async function init() {

@@ -166,8 +166,8 @@
     <!-- ========================================== -->
     <div id="screen-add-drink" class="screen">
       <div class="form-header">
-        <span class="eyebrow">— Novo Drink</span>
-        <h1>Adicionar Drink</h1>
+        <span class="eyebrow" id="drink-form-eyebrow">— Novo Drink</span>
+        <h1 id="drink-form-titulo">Adicionar Drink</h1>
       </div>
 
       <div class="form-group">
@@ -232,6 +232,16 @@
       </div>
 
       <div id="lista-compras-itens"></div>
+
+      <div class="lista-compras-add-item" data-admin-only>
+        <label class="form-label">Adicionar item à lista</label>
+        <div class="lista-compras-add-item-linha">
+          <input type="text" id="lista-compras-novo-item-nome" class="form-input" placeholder="Nome do item">
+          <input type="number" id="lista-compras-novo-item-qtd" class="form-input" placeholder="Qtd" min="0" step="0.01">
+          <input type="text" id="lista-compras-novo-item-unidade" class="form-input" placeholder="Unidade (un, kg...)">
+        </div>
+        <button type="button" id="btn-adicionar-item-lista-compras" class="btn-block btn-secondary">+ Adicionar item</button>
+      </div>
 
       <div class="form-actions">
         <button type="button" data-target="screen-eventos" class="btn-secondary">Voltar</button>
@@ -553,6 +563,17 @@
       <div class="modal-acoes">
         <button type="button" id="modal-confirmacao-cancelar" class="btn-secondary">Cancelar</button>
         <button type="button" id="modal-confirmacao-ok" class="btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-editar-quantidade" class="modal-overlay" hidden>
+    <div class="modal-caixa">
+      <p id="modal-editar-quantidade-mensagem" class="modal-mensagem"></p>
+      <input type="number" id="modal-editar-quantidade-input" class="form-input" min="0" step="0.01">
+      <div class="modal-acoes">
+        <button type="button" id="modal-editar-quantidade-cancelar" class="btn-secondary">Cancelar</button>
+        <button type="button" id="modal-editar-quantidade-ok" class="btn-primary">Salvar</button>
       </div>
     </div>
   </div>

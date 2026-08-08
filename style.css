@@ -595,6 +595,17 @@ select {
   margin-top: 2px;
 }
 
+/* Admin: o card inteiro (fora do botão Excluir) é clicável para editar. */
+body.is-admin .drink-item {
+  cursor: pointer;
+}
+
+.drink-item-editar-hint {
+  color: var(--color-muted);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
 .insumo-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1.5fr auto;
@@ -1040,6 +1051,61 @@ canvas {
   text-decoration: line-through;
 }
 
+/* Ações do admin em cada item da lista de compras (editar quantidade,
+ * remover item extra) — mesmo padrão de data-admin-only usado em drinks e
+ * eventos, com a diferença de que aqui ficam dentro da própria linha. */
+.compras-item-acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.compras-item-editar,
+.compras-item-remover {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.compras-item-editar:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.compras-item-remover {
+  color: var(--color-error);
+}
+
+.compras-item-remover:hover {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+/* Formulário do admin para adicionar um item que não veio do cálculo automático. */
+.lista-compras-add-item {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--color-border-soft);
+}
+
+.lista-compras-add-item-linha {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+
 /* ================== AGENDA / EVENTOS ================== */
 .eventos-secao-titulo {
   font-size: 11.5px;
@@ -1278,6 +1344,12 @@ canvas {
   line-height: 1.5;
   text-align: center;
   margin-bottom: 20px;
+}
+
+/* Campo numérico do modal de edição de quantidade (components/edicaoValor.js) */
+.modal-caixa .form-input {
+  margin-bottom: 18px;
+  text-align: center;
 }
 
 .modal-acoes {

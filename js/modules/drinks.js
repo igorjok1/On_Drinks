@@ -4,6 +4,7 @@ import { enviarArquivo } from '../utils/uploads.js';
 import { filtrarPorTexto, criarControladorBusca } from '../utils/busca.js';
 import { confirmarEExcluir } from '../utils/exclusao.js';
 import { criarSeletorDeArquivo } from '../utils/seletorDeArquivo.js';
+import { isAdmin } from '../utils/auth.js';
 import { $ } from '../utils/dom.js';
 
 const BUCKET_FOTOS = 'drinks-fotos';
@@ -37,15 +38,13 @@ const DrinksListScreen = (() => {
               <div class="drink-item-name">${d.nome}</div>
               <div class="drink-item-desc">${d.descricao ? d.descricao.slice(0, 60) : 'Sem descrição'}</div>
             </div>
+            <span class="drink-item-editar-hint" data-admin-only aria-hidden="true" title="Toque para editar">✎</span>
             <button type="button" class="btn-excluir-drink" data-admin-only data-id="${d.id}">Excluir</button>
           </div>`).join('')
       : `<p class="empty-state">Nenhum drink cadastrado ainda.</p>`;
   }
 
-  async function aoClicarLista(event) {
-    const botao = event.target.closest('.btn-excluir-drink');
-    if (!botao) return;
-
+  async function aoClicarExcluir(botao) {
     const id = Number(botao.dataset.id);
     const drink = DrinksRepository.getAll().find(d => d.id === id);
     if (!drink) return;
@@ -54,6 +53,29 @@ const DrinksListScreen = (() => {
       `Excluir o drink "${drink.nome}"? Essa ação não pode ser desfeita.`,
       () => DrinksRepository.remove(id)
     );
+  }
+
+  // Admin: tocar em qualquer parte do card (fora do botão de excluir) abre
+  // o formulário de edição, já preenchido com os dados do drink — inclusive
+  // os insumos usados pela lista de compras. Não-admin: não faz nada, a
+  // RLS da tabela já bloquearia a escrita mesmo se o clique passasse.
+  function aoClicarEditar(item) {
+    if (!isAdmin()) return;
+
+    const id = Number(item.dataset.id);
+    const drink = DrinksRepository.getAll().find(d => d.id === id);
+    if (!drink) return;
+
+    AddDrinkScreen.preencherForm(drink);
+    goToScreen('screen-add-drink');
+  }
+
+  function aoClicarLista(event) {
+    const botaoExcluir = event.target.closest('.btn-excluir-drink');
+    if (botaoExcluir) return aoClicarExcluir(botaoExcluir);
+
+    const item = event.target.closest('.drink-item');
+    if (item) aoClicarEditar(item);
   }
 
   function init() {
@@ -68,20 +90,21 @@ const DrinksListScreen = (() => {
   return { init, render };
 })();
 
-// ---------- UI: Tela "Adicionar Drink" (formulário + insumos dinâmicos) ----------
+// ---------- UI: Tela "Adicionar/Editar Drink" (formulário + insumos dinâmicos) ----------
 const AddDrinkScreen = (() => {
   const foto = criarSeletorDeArquivo({ previewId: 'drink-photo-preview', inputId: 'drink-photo-input' });
+  const state = { idEmEdicao: null, fotoAtualUrl: '' };
   let insumoSeq = 0;
 
-  function criarLinhaInsumo() {
+  function criarLinhaInsumo(inicial = {}) {
     insumoSeq += 1;
     const row = document.createElement('div');
     row.className = 'insumo-row';
     row.dataset.insumoRow = insumoSeq;
     row.innerHTML = `
-      <input type="text" class="form-input insumo-nome" placeholder="Insumo (ex: Limão)">
-      <input type="number" class="form-input insumo-qtd" placeholder="Qtd" min="0" step="0.01">
-      <input type="text" class="form-input insumo-unidade" placeholder="Unidade (ex: un, kg, ml)">
+      <input type="text" class="form-input insumo-nome" placeholder="Insumo (ex: Limão)" value="${inicial.nome || ''}">
+      <input type="number" class="form-input insumo-qtd" placeholder="Qtd" min="0" step="0.01" value="${inicial.quantidade != null ? inicial.quantidade : ''}">
+      <input type="text" class="form-input insumo-unidade" placeholder="Unidade (ex: un, kg, ml)" value="${inicial.unidade || ''}">
       <button type="button" class="insumo-remove">×</button>
     `;
     row.querySelector('.insumo-remove').addEventListener('click', () => row.remove());
@@ -98,12 +121,44 @@ const AddDrinkScreen = (() => {
       .filter(i => i.nome);
   }
 
+  function atualizarCabecalho(emEdicao) {
+    $('drink-form-eyebrow').textContent = emEdicao ? '— Editar Drink' : '— Novo Drink';
+    $('drink-form-titulo').textContent = emEdicao ? 'Editar Drink' : 'Adicionar Drink';
+    $('btn-save-drink').textContent = emEdicao ? 'Salvar alterações' : 'Salvar drink';
+  }
+
   function resetForm() {
     $('drink-name-input').value = '';
     $('drink-desc-input').value = '';
     $('insumos-container').innerHTML = '';
     foto.reset();
     criarLinhaInsumo();
+
+    state.idEmEdicao = null;
+    state.fotoAtualUrl = '';
+    atualizarCabecalho(false);
+  }
+
+  // Preenche o formulário com os dados de um drink já existente, entrando
+  // em modo de edição (mesmo padrão de Pedidos.preencherForm em pedidos.js).
+  function preencherForm(drink) {
+    $('drink-name-input').value = drink.nome || '';
+    $('drink-desc-input').value = drink.descricao || '';
+
+    $('insumos-container').innerHTML = '';
+    const insumos = drink.insumos && drink.insumos.length ? drink.insumos : [{}];
+    insumos.forEach(insumo => criarLinhaInsumo(insumo));
+
+    foto.reset();
+    state.fotoAtualUrl = drink.foto || '';
+    if (state.fotoAtualUrl) {
+      const preview = $('drink-photo-preview');
+      preview.style.backgroundImage = `url('${state.fotoAtualUrl}')`;
+      preview.classList.add('has-photo');
+    }
+
+    state.idEmEdicao = drink.id;
+    atualizarCabecalho(true);
   }
 
   async function salvar() {
@@ -116,17 +171,23 @@ const AddDrinkScreen = (() => {
     const botaoSalvar = $('btn-save-drink');
     botaoSalvar.disabled = true;
 
-    // A foto sobe pro Storage do Supabase (não fica mais em base64 salvo
-    // no banco) — só a URL pública final é que é gravada no drink.
+    // A foto só sobe pro Storage se uma nova foi escolhida; se não, mantém
+    // a URL já salva (relevante ao editar um drink sem trocar a foto).
     const arquivoFoto = foto.obterArquivo();
-    const urlFoto = arquivoFoto ? await enviarArquivo(BUCKET_FOTOS, arquivoFoto) : '';
+    const urlFoto = arquivoFoto ? await enviarArquivo(BUCKET_FOTOS, arquivoFoto) : state.fotoAtualUrl;
 
-    await DrinksRepository.add({
+    const dados = {
       nome,
       descricao: $('drink-desc-input').value.trim(),
       foto: urlFoto,
       insumos: lerInsumos()
-    });
+    };
+
+    if (state.idEmEdicao !== null) {
+      await DrinksRepository.update(state.idEmEdicao, dados);
+    } else {
+      await DrinksRepository.add(dados);
+    }
 
     botaoSalvar.disabled = false;
     resetForm();
@@ -135,12 +196,13 @@ const AddDrinkScreen = (() => {
 
   function init() {
     foto.init();
-    $('btn-add-insumo').addEventListener('click', criarLinhaInsumo);
+    $('btn-add-insumo').addEventListener('click', () => criarLinhaInsumo());
     $('btn-save-drink').addEventListener('click', salvar);
+    $('btn-cancel-drink').addEventListener('click', resetForm);
     resetForm();
   }
 
-  return { init, resetForm };
+  return { init, resetForm, preencherForm };
 })();
 
 async function init() {
